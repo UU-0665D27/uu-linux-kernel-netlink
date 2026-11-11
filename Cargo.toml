@@ -3,6 +3,7 @@ name = "uu-linux-kernel-netlink"
 version = "0.1.0"
 edition = "2024"
 description = "Низкоуровневая библиотека для работы с generic netlink и nl80211"
+repository = "https://github.com/UU-0665D27/uu-linux-kernel-netlink"
 license = "MIT OR Apache-2.0"
 
 [features]
