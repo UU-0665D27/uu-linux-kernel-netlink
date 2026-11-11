@@ -1,0 +1,24 @@
+[package]
+name = "uu-linux-kernel-netlink"
+version = "0.1.0"
+edition = "2024"
+description = "Низкоуровневая библиотека для работы с generic netlink и nl80211"
+license = "MIT OR Apache-2.0"
+
+[features]
+default = []
+tracing = ["dep:tracing"]
+
+[dependencies]
+libc = "0.2"
+thiserror = "2"
+tracing = { version = "0.1", optional = true }
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+nursery = "deny"
+perf = "deny"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
