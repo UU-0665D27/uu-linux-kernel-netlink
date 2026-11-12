@@ -239,7 +239,14 @@ where
     }
 
     // SAFETY: req содержит корректное имя интерфейса.
-    if unsafe { libc::ioctl(fd.as_raw_fd(), libc::SIOCGIFFLAGS, &raw mut req) } < 0 {
+    if unsafe {
+        libc::ioctl(
+            fd.as_raw_fd(),
+            ioctl_request(libc::SIOCGIFFLAGS)?,
+            &raw mut req,
+        )
+    } < 0
+    {
         return Err(io_error());
     }
 
@@ -249,10 +256,25 @@ where
     req.ifr_ifru.ifru_flags = updated;
 
     // SAFETY: req содержит валидные имя и флаги.
-    if unsafe { libc::ioctl(fd.as_raw_fd(), libc::SIOCSIFFLAGS, &raw mut req) } < 0 {
+    if unsafe {
+        libc::ioctl(
+            fd.as_raw_fd(),
+            ioctl_request(libc::SIOCSIFFLAGS)?,
+            &raw mut req,
+        )
+    } < 0
+    {
         return Err(io_error());
     }
     Ok(())
+}
+
+/// Приводит номер `ioctl`-запроса к типу, который ожидает `libc`.
+///
+/// На `musl` запрос имеет тип `c_int`, на `glibc` — `c_ulong`.
+fn ioctl_request(request: libc::c_ulong) -> Result<libc::Ioctl> {
+    libc::Ioctl::try_from(request)
+        .map_err(|_| Error::ValueOutOfRange(i64::try_from(request).unwrap_or(i64::MAX)))
 }
 
 /// Разбирает сообщение `NL80211_CMD_NEW_INTERFACE` / `GET_INTERFACE`.
