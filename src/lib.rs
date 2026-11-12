@@ -62,7 +62,7 @@ pub use crate::attr::{
 #[cfg(target_os = "linux")]
 pub use crate::error::{Error, Result};
 #[cfg(target_os = "linux")]
-pub use crate::genl::{CTRL_VERSION, GenlFamily, GenlSocket};
+pub use crate::genl::{CTRL_VERSION, GenlFamily, GenlSocket, MulticastGroup};
 #[cfg(target_os = "linux")]
 pub use crate::message::{
     GENL_HDRLEN, GenlHeader, MessageBuilder, NLM_F_ACK, NLM_F_DUMP, NLM_F_DUMP_FILTERED,

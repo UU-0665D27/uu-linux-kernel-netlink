@@ -4,13 +4,22 @@
 
 use std::collections::HashMap;
 
-use crate::attr::{AttrWriter, read_str, read_u32};
+use crate::attr::{AttrIter, AttrWriter, read_str, read_u32};
 use crate::error::{Error, Result};
 use crate::message::{MessageBuilder, NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, NlMessage};
 use crate::socket::NetlinkSocket;
 
 /// Версия протокола generic netlink controller.
 pub const CTRL_VERSION: u8 = 1;
+
+/// Multicast-группа generic netlink family.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MulticastGroup {
+    /// Имя группы (`"mlme"`, `"config"`, ...).
+    pub name: String,
+    /// Идентификатор для `NETLINK_ADD_MEMBERSHIP`.
+    pub id: u32,
+}
 
 /// Описание generic netlink family.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,6 +34,8 @@ pub struct GenlFamily {
     pub hdrsize: Option<u32>,
     /// Максимальный номер атрибута.
     pub maxattr: Option<u32>,
+    /// Multicast-группы, объявленные family.
+    pub groups: Vec<MulticastGroup>,
 }
 
 /// Generic netlink-сокет с кэшем найденных family.
@@ -73,6 +84,21 @@ impl GenlSocket {
         let family = self.get_family(name)?;
         self.families.insert(name.to_string(), family.id);
         Ok(family.id)
+    }
+
+    /// Возвращает id multicast-группы family.
+    ///
+    /// # Errors
+    ///
+    /// Возвращает [`Error::FamilyNotFound`], если family не зарегистрирована
+    /// или не объявляет такую группу.
+    pub fn multicast_group(&mut self, family: &str, group: &str) -> Result<u32> {
+        let info = self.get_family(family)?;
+        info.groups
+            .iter()
+            .find(|candidate| candidate.name == group)
+            .map(|candidate| candidate.id)
+            .ok_or_else(|| Error::FamilyNotFound(format!("{family}/{group}")))
     }
 
     /// Запрашивает описание family у generic netlink controller.
@@ -186,6 +212,7 @@ fn parse_family(msg: &NlMessage) -> Result<Option<GenlFamily>> {
         version: None,
         hdrsize: None,
         maxattr: None,
+        groups: Vec::new(),
     };
     let mut found_id = false;
 
@@ -206,11 +233,32 @@ fn parse_family(msg: &NlMessage) -> Result<Option<GenlFamily>> {
             libc::CTRL_ATTR_VERSION => family.version = read_u32(data),
             libc::CTRL_ATTR_HDRSIZE => family.hdrsize = read_u32(data),
             libc::CTRL_ATTR_MAXATTR => family.maxattr = read_u32(data),
+            libc::CTRL_ATTR_MCAST_GROUPS => family.groups = parse_groups(data),
             _ => {}
         }
     }
 
     Ok(found_id.then_some(family))
+}
+
+/// Разбирает вложенный список multicast-групп.
+fn parse_groups(data: &[u8]) -> Vec<MulticastGroup> {
+    let mut groups = Vec::new();
+    for (_, entry) in AttrIter::new(data) {
+        let mut name = None;
+        let mut id = None;
+        for (kind, value) in AttrIter::new(entry) {
+            match i32::from(kind) {
+                libc::CTRL_ATTR_MCAST_GRP_NAME => name = read_str(value),
+                libc::CTRL_ATTR_MCAST_GRP_ID => id = read_u32(value),
+                _ => {}
+            }
+        }
+        if let (Some(name), Some(id)) = (name, id) {
+            groups.push(MulticastGroup { name, id });
+        }
+    }
+    groups
 }
 
 #[cfg(test)]

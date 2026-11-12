@@ -150,6 +150,76 @@ impl NetlinkSocket {
         Ok(())
     }
 
+    /// Подписывается на multicast-группу.
+    ///
+    /// # Errors
+    ///
+    /// Возвращает [`Error::Io`] при ошибке `setsockopt(2)`.
+    pub fn join_multicast(&self, group: u32) -> Result<()> {
+        // SAFETY: group — u32, длина соответствует типу.
+        let rc = unsafe {
+            libc::setsockopt(
+                self.fd.as_raw_fd(),
+                libc::SOL_NETLINK,
+                libc::NETLINK_ADD_MEMBERSHIP,
+                (&raw const group).cast(),
+                socklen(std::mem::size_of::<u32>()),
+            )
+        };
+        if rc < 0 {
+            return Err(io_error());
+        }
+        trace!(group, "netlink multicast group joined");
+        Ok(())
+    }
+
+    /// Читает одно сообщение-событие, пропуская ACK и служебные кадры.
+    ///
+    /// Возвращает `Ok(None)`, если за время, заданное
+    /// [`NetlinkSocket::set_recv_timeout`], ничего не пришло.
+    ///
+    /// # Errors
+    ///
+    /// Возвращает [`Error::MalformedMessage`] или [`Error::Io`].
+    pub fn recv_event(&mut self) -> Result<Option<NlMessage>> {
+        let raw = match self.recv() {
+            Ok(raw) => raw,
+            Err(Error::Io(error))
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        };
+
+        let mut offset = 0usize;
+        while let Some(header_end) = offset.checked_add(NLMSG_HDRLEN) {
+            if header_end > raw.len() {
+                break;
+            }
+            let header = NetlinkHeader::parse(&raw[offset..]).ok_or(Error::MalformedMessage)?;
+            let msg_len = usize::try_from(header.nlmsg_len).map_err(|_| Error::MalformedMessage)?;
+            let Some(msg_end) = offset.checked_add(msg_len) else {
+                break;
+            };
+            if msg_len < NLMSG_HDRLEN || msg_end > raw.len() {
+                break;
+            }
+            let chunk = &raw[offset..msg_end];
+            offset = offset.saturating_add(nlmsg_align(msg_len));
+
+            let kind = i32::from(header.nlmsg_type);
+            if matches!(kind, NLMSG_DONE | NLMSG_ERROR | NLMSG_NOOP | NLMSG_OVERRUN) {
+                continue;
+            }
+            return NlMessage::parse(chunk.to_vec()).map(Some);
+        }
+        Ok(None)
+    }
+
     /// Отправляет сообщение ядру.
     ///
     /// # Errors
