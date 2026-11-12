@@ -9,7 +9,7 @@
 //! * [`Nl80211`] — nl80211: список интерфейсов, смена режима, promisc и каналы.
 //!
 //! Значения ABI-констант берутся из `libc`, чтобы не дублировать
-//! заголовочные файлы ядра. Библиотека работает только на Linux.
+//! заголовочные файлы ядра. Библиотека работает на Linux и Android.
 //!
 //! # Логирование
 //!
@@ -34,42 +34,42 @@
 //!
 //! Netlink и nl80211 требуют `root` или `CAP_NET_ADMIN`.
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
 compile_error!("uu-linux-kernel-netlink supports Linux only");
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 #[macro_use]
 mod telemetry;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod attr;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod error;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod genl;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod message;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod nl80211;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod socket;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub use crate::attr::{
     AttrIter, AttrWriter, NLA_F_NESTED_BIT, NLA_HDRLEN, nla_align, read_mac, read_str, read_u8,
     read_u16, read_u32, read_u64,
 };
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub use crate::error::{Error, Result};
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub use crate::genl::{CTRL_VERSION, GenlFamily, GenlSocket, MulticastGroup};
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub use crate::message::{
     GENL_HDRLEN, GenlHeader, MessageBuilder, NLM_F_ACK, NLM_F_DUMP, NLM_F_DUMP_FILTERED,
     NLM_F_DUMP_INTR, NLM_F_ECHO, NLM_F_MATCH, NLM_F_MULTI, NLM_F_REQUEST, NLM_F_ROOT, NLMSG_DONE,
     NLMSG_ERROR, NLMSG_HDRLEN, NLMSG_NOOP, NLMSG_OVERRUN, NetlinkHeader, NlMessage, nlmsg_align,
 };
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub use crate::nl80211::{
     CHANNELS_2GHZ, CHANNELS_5GHZ, IfType, NL80211_ATTR_IFINDEX, NL80211_ATTR_IFNAME,
     NL80211_ATTR_IFTYPE, NL80211_ATTR_MAC, NL80211_ATTR_WIPHY, NL80211_ATTR_WIPHY_CHANNEL_TYPE,
@@ -77,5 +77,5 @@ pub use crate::nl80211::{
     NL80211_VERSION, Nl80211, Nl80211Cmd, WifiInterface, all_channels, channel_to_freq,
     parse_interface, set_if_promisc, set_if_up,
 };
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub use crate::socket::{NETLINK_GENERIC, NETLINK_ROUTE, NetlinkSocket};
